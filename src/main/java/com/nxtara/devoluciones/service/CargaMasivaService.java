@@ -1,7 +1,11 @@
 package com.nxtara.devoluciones.service;
 
-import com.nxtara.devoluciones.model.*;
-import com.nxtara.devoluciones.repository.*;
+import com.nxtara.devoluciones.domain.Solicitud;
+import com.nxtara.devoluciones.domain.EstadoSolicitud;
+import com.nxtara.devoluciones.model.CargaError;
+import com.nxtara.devoluciones.model.CargaMasiva;
+import com.nxtara.devoluciones.repository.CargaMasivaRepository;
+import com.nxtara.devoluciones.repository.SolicitudRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,6 +16,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class CargaMasivaService {
@@ -61,12 +66,13 @@ public class CargaMasivaService {
                 String cuenta = datos[4].trim();
                 String referencia = datos[5].trim();
 
-                // Validaciones
+                // Validar RUT
                 if (!rutValidator.esValido(rut)) {
                     errores.add(new CargaError(totalFilas, "rut_cliente", "RUT inválido: " + rut));
                     continue;
                 }
 
+                // Validar Monto
                 BigDecimal monto;
                 try {
                     monto = new BigDecimal(montoStr);
@@ -79,21 +85,28 @@ public class CargaMasivaService {
                     continue;
                 }
 
-                // Idempotencia: Verificar si la referencia de banco ya existe
+                // Idempotencia
                 if (solicitudRepository.existsByReferenciaBanco(referencia)) {
                     errores.add(new CargaError(totalFilas, "referencia_banco", "Referencia duplicada: " + referencia));
                     continue;
                 }
 
-                Solicitud solicitud = new Solicitud();
-                solicitud.setRutCliente(rut);
-                solicitud.setNombreCliente(nombre);
-                solicitud.setMonto(monto);
-                solicitud.setBancoDestino(banco);
-                solicitud.setCuentaDestino(cuenta);
-                solicitud.setReferenciaBanco(referencia);
-                solicitud.setOrigen(OrigenSolicitud.CARGA_MASIVA);
-                solicitud.setEstado(EstadoSolicitud.EN_REVISION);
+                // Construcción de la entidad usando el Builder de Lombok
+                Solicitud solicitud = Solicitud.builder()
+                        .folio("DEV-2026-" + String.format("%06d", totalFilas) + "-" + UUID.randomUUID().toString().substring(0, 4))
+                        .rutCliente(rut)
+                        .nombreCliente(nombre)
+                        .monto(monto)
+                        .moneda("CLP")
+                        .bancoDestino(banco)
+                        .cuentaDestino(cuenta)
+                        .referenciaBanco(referencia)
+                        .origen("CARGA_MASIVA")
+                        .estado(EstadoSolicitud.EN_REVISION)
+                        .creadaPor("SISTEMA_MASIVO")
+                        .actualizadaPor("SISTEMA_MASIVO")
+                        .reabiertaCount(0)
+                        .build();
 
                 solicitudesAInsertar.add(solicitud);
             }

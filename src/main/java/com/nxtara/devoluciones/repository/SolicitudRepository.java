@@ -13,4 +13,5 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
     Optional<Solicitud> findByFolio(String folio);
     List<Solicitud> findByEstado(EstadoSolicitud estado);
     List<Solicitud> findByRutCliente(String rutCliente);
+    boolean existsByReferenciaBanco(String referenciaBanco);
 }
